@@ -1,4 +1,4 @@
-<!-- ALIEN CHESS HUB - COMPLETE 4-TAB SIDEBAR WITH PERSISTENT THEMES -->
+<!-- ALIEN CHESS HUB - COMPLETE 4-TAB SIDEBAR WITH PERSISTENT THEMES & MCA LIVE API -->
 <div id="ach-main-wrapper" class="ach-theme-light" style="padding: 16px; border-radius: 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 100%; box-sizing: border-box; transition: all 0.3s ease;">
 
   <!-- Dynamic CSS Variables & Theme Definitions -->
@@ -322,7 +322,7 @@
       border: 1.5px solid var(--accent);
       overflow: hidden;
       box-shadow: 0 4px 14px var(--shadow-accent);
-      background: #ffffff;
+      background: var(--bg-card);
       margin-bottom: 14px;
     }
 
@@ -337,6 +337,23 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+    }
+
+    /* MCA Item Row */
+    .ach-mca-item {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-divider);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      transition: background 0.2s ease;
+    }
+    .ach-mca-item:last-child {
+      border-bottom: none;
+    }
+    .ach-mca-item:hover {
+      background: var(--accent-soft);
     }
 
     /* Settings Theme Buttons */
@@ -435,6 +452,7 @@
 
   <!-- TAB 2: COMMAND CENTRE PANE -->
   <div id="ach-command-content" class="ach-tab-pane">
+    <!-- Mission Log Embed -->
     <div class="ach-widget-frame">
       <div class="ach-widget-header">
         <span>🚀 MISSION LOG</span>
@@ -443,6 +461,20 @@
       <iframe style="width: 100%; height: 185px; border: none; background: white; display: block;" src="https://chatgpt758.github.io/andi/////////"></iframe>
     </div>
 
+    <!-- MCA (Multi-Club Arena) Live API Feed -->
+    <div class="ach-widget-frame">
+      <div class="ach-widget-header">
+        <span>⚔️ MCA &bull; UPCOMING MULTI-CLUB ARENAS</span>
+        <button onclick="fetchAchMcaMatches()" title="Refresh MCA Feed" style="background: rgba(255, 255, 255, 0.2); color: #ffffff; border: none; font-size: 9px; padding: 2px 7px; border-radius: 4px; font-weight: 700; cursor: pointer;">↻ SYNC</button>
+      </div>
+      <div id="ach-mca-list" style="max-height: 220px; overflow-y: auto; background: var(--bg-card);">
+        <div style="padding: 16px; text-align: center; font-size: 11.5px; color: var(--text-muted); font-weight: 600;">
+          📡 Scanning Chess.com API for upcoming MCAs...
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Arena Standings Card -->
     <div class="ach-widget-frame" style="margin-bottom: 0; background: var(--bg-card);">
       <div class="ach-widget-header">
         <span>🏆 LIVE ARENA STANDINGS</span>
@@ -508,7 +540,7 @@
     </div>
   </div>
 
-  <!-- JavaScript for Tabs, Persistent Themes, and Reliable Clipboard Copy -->
+  <!-- JavaScript for Tabs, Persistent Themes, MCA API, and Copy Link -->
   <script>
     const ACH_THEME_STORAGE_KEY = 'ach_sidebar_theme_pref';
     const ALL_THEME_CLASSES = ['ach-theme-light', 'ach-theme-dark', 'ach-theme-red', 'ach-theme-blue', 'ach-theme-green', 'ach-theme-yellow'];
@@ -543,9 +575,7 @@
     function saveThemeToStorage(data) {
       try {
         localStorage.setItem(ACH_THEME_STORAGE_KEY, JSON.stringify(data));
-      } catch (e) {
-        // Ignore storage errors in restricted third-party iframe sandboxes
-      }
+      } catch (e) {}
     }
 
     let lastRandomTheme = '';
@@ -577,10 +607,65 @@
           if (saved.mode === 'random') lastRandomTheme = saved.cls;
           applyThemeState(saved.cls, saved.name || 'Saved Theme', btnId);
         }
-      } catch (e) {
-        // Fallback to default light theme if localStorage is inaccessible
-      }
+      } catch (e) {}
     })();
+
+    // Fetch Upcoming Multi-Club Arenas (MCA) & Team Matches via Chess.com Public API
+    async function fetchAchMcaMatches() {
+      const container = document.getElementById('ach-mca-list');
+      container.innerHTML = `<div style="padding: 16px; text-align: center; font-size: 11.5px; color: var(--text-muted); font-weight: 600;">📡 Fetching upcoming MCAs...</div>`;
+
+      try {
+        const response = await fetch('https://api.chess.com/pub/club/alien-chess-hub/matches');
+        if (!response.ok) throw new Error('Network error');
+        const data = await response.json();
+
+        const upcoming = data.registered || [];
+        if (upcoming.length === 0) {
+          container.innerHTML = `
+            <div style="padding: 16px; text-align: center;">
+              <div style="font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">No Upcoming MCAs Scheduled</div>
+              <div style="font-size: 11px; color: var(--text-muted);">Check back soon or view all club arenas on Chess.com.</div>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = upcoming.map(match => {
+          const title = match.name || 'Multi-Club Arena';
+          const opponentUrl = match.opponent || '';
+          const opponentSlug = opponentUrl.split('/').pop()?.replace(/-/g, ' ') || 'Multi-Club';
+          const startDate = match.start_time 
+            ? new Date(match.start_time * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : 'Registration Open';
+          const matchUrl = match['@id'] || 'https://www.chess.com/clubs/matches/alien-chess-hub';
+
+          return `
+            <div class="ach-mca-item">
+              <div style="min-width: 0; flex: 1;">
+                <div style="font-size: 11.5px; font-weight: 800; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${title}">
+                  ${title}
+                </div>
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px; text-transform: capitalize;">
+                  🆚 ${opponentSlug} &bull; 🕒 ${startDate}
+                </div>
+              </div>
+              <a href="${matchUrl}" target="_blank" rel="noopener" class="ach-pop-btn ach-btn-primary" style="padding: 6px 10px; font-size: 10px; white-space: nowrap; flex-shrink: 0;">
+                Join &rarr;
+              </a>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = `
+          <div style="padding: 14px; text-align: center;">
+            <div style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 8px;">Unable to load live MCA feed directly.</div>
+            <a href="https://www.chess.com/clubs/matches/alien-chess-hub" target="_blank" rel="noopener" class="ach-pop-btn ach-btn-primary" style="display: inline-block; padding: 6px 12px; font-size: 10.5px;">Open Chess.com Arenas</a>
+          </div>`;
+      }
+    }
+
+    // Automatically trigger MCA API fetch on load
+    fetchAchMcaMatches();
 
     function copyAchInviteLink(btn) {
       const inputEl = document.getElementById('ach-invite-input');
